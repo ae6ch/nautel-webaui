@@ -16,6 +16,9 @@ I tested this against a live on-the-air Nautel VS1 running firmware 5.3.2.1 and 
 work with any Nautel FM transmitter that speaks the same protocol.  If your transmitter is not supported,
 or it crashes, please let me know, and also send a packet capture so I can fix it.  Sorry in advance.  
 
+> **Unofficial project.** Not affiliated with, authorized by, or endorsed by Nautel. "Nautel" and "AUI"
+> are trademarks of their respective owner and are used here only to describe compatibility.
+
 ![Dashboard with demo data](docs/demo.png)
 
 *The dashboard running on synthetic `--demo` data — no transmitter attached.*
