@@ -1,16 +1,28 @@
 # Nautel transmitter web dashboard
 
 A modern, browser-based replacement for the Flash AUI on Nautel FM transmitters. The original AUI is
-a Shockwave/Flash application that no browser will run anymore; this reads the same live telemetry off
-the transmitter's binary protocol and renders it as a dependency-free web page.
+a Shockwave/Flash application that no browser will run anymore.  For us Mac users, the NautelLegacyAccess.app
+too is a workaround, but it is a Intel-only binary that will stop working in the next macOS release.
+
+We've been promised a new HTML5 AUI "next year" for probably a decade now.  I got tired of waiting, so I wrote 
+this.
+
+This reads the same live telemetry off the transmitter's binary protocol and renders it as a 
+dependency-free web page.  It currently has no "write" capability, so it cannot change any settings or 
+turn the transmitter on/off.  As soon as I get my spare transmitter out of storage I plan to capture the 
+write commands and add that functionality, but for now it is read-only.  
+
+I tested this against a live on-the-air Nautel VS1 running firmware 5.3.2.1 and nothing bad happened.  It should
+work with any Nautel FM transmitter that speaks the same protocol.  If your transmitter is not supported,
+or it crashes, please let me know, and also send a packet capture so I can fix it.  Sorry in advance.  
 
 ![Dashboard with demo data](docs/demo.png)
 
 *The dashboard running on synthetic `--demo` data — no transmitter attached.*
 
-Everything here was reverse-engineered from a packet capture plus the transmitter's own config files;
-there is no vendor documentation involved. See [docs/PROTOCOL.md](docs/PROTOCOL.md) for the protocol
-details.
+Everything here was reverse-engineered from a packet capture plus the transmitter's own config files
+retrieved over HTTP. There is no vendor documentation involved. See [docs/PROTOCOL.md](docs/PROTOCOL.md) 
+for the protocol details.
 
 ## What it shows
 
@@ -18,7 +30,7 @@ details.
   state, active exciter, plus the station's call sign and current preset. All of it comes from the
   transmitter; nothing is hard-coded per site, so the same page works for any unit.
 - **Instrument plots** — RF spectrum with the regulatory mask overlay, EQ frequency and impulse
-  response, and an L/R Lissajous, decoded from the transmitter's array channels.
+  response, and an L/R Lissajous (needs some work), decoded from the transmitter's array channels.
 - **Meter rail** — every meter with the green/yellow/red threshold bands and range taken from the
   transmitter's spec, coloured exactly as the AUI does.
 - **Device tables** — the full per-device meter list (Controller, Exciter, and HD Exciter when
