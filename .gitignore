@@ -1,0 +1,7 @@
+*.pcapng
+.claude
+CLAUDE.md
+AGENTS.md
+tx_spec.xml
+.tx_spec.cache.xml
+__pycache__/
