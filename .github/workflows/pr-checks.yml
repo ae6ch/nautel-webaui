@@ -1,0 +1,76 @@
+name: PR checks
+
+# This is a SYNTAX AND LINT gate, not a test gate. There is no test suite in this repo
+# yet, and this workflow does not pretend there is one. It byte-compiles every tracked
+# Python file, imports the two top-level modules, and runs ruff scoped to the rule sets
+# that catch real errors rather than style preferences. Add real tests -- and a job that
+# runs them -- when there are behaviours worth pinning.
+#
+# Runner choice: `ubuntu-latest`, NOT this estate's self-hosted `rb-amd64` / `rb-arm64`
+# pools. Those pools are ARC scale sets registered per REPOSITORY
+# (RBServices/scripts/deploy-arc.sh), and `nautel-webaui` is not in any cluster's REPOS
+# list, so a job targeting `rb-amd64` here would queue until it timed out. This repo is
+# public, so GitHub-hosted minutes are free. If the repo is ever onboarded to an ARC
+# cluster, switch `runs-on` then.
+
+on:
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  python-syntax-and-lint:
+    name: python-syntax-and-lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the pull request merge commit
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Byte-compile every tracked Python file
+        run: |
+          set -euo pipefail
+          # Fail on the first syntax error rather than reporting a count.
+          python -m compileall -q -f .
+
+      - name: Import the top-level modules
+        run: |
+          set -euo pipefail
+          # Both modules are stdlib-only and guarded by `if __name__ == "__main__"`, so
+          # importing them is safe and catches import-time errors that byte-compiling
+          # cannot. If a third-party dependency is ever added, this step needs a
+          # dependency install (and the repo needs a requirements file) before it can
+          # keep passing.
+          python -c 'import nautel3501, nautel_bridge; print("imported nautel3501, nautel_bridge")'
+
+      - name: Install ruff
+        run: pip install 'ruff==0.16.2'
+
+      - name: Lint (errors only, not style)
+        run: |
+          set -euo pipefail
+          # SCOPE: `--select E9,F` only -- E9 is syntax/IO errors, F is pyflakes
+          # (undefined names, unused or shadowed imports, f-strings with no
+          # placeholders). The full default rule set reports 15 pre-existing
+          # violations in this tree (SIM115, FURB167, RUF012, EXE001, ASYNC230,
+          # BLE001) -- all style/idiom findings in code that works. Failing the gate
+          # on day one over those would make the check something people route around,
+          # so the scope is deliberately narrow and honest. Widen it by editing this
+          # `--select` after the existing findings are cleaned up.
+          #
+          # `--isolated` so the result does not depend on a config file that does not
+          # exist in this repo, and the version is pinned so a ruff release cannot
+          # change the default rule set under the gate.
+          ruff check --isolated --select E9,F --output-format=github .
