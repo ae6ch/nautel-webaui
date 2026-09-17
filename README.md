@@ -87,9 +87,11 @@ python3 nautel_bridge.py --host 192.168.10.1 --user admin --password secret --pr
 
 ## Read-only
 
-This monitors; it cannot control. The captured protocol contains no write operations, so the command
-encoding is unknown and the RF On/Off/Reset buttons are deliberately disabled. Adding control would
-require capturing an AUI session that actually changes a setting, then working out the write frames.
+This monitors; it cannot control. The write encoding *is* now known — a captured settings change and a
+reboot press decoded the `SetRequest` and `MaintenanceRequest` frames (see
+[docs/PROTOCOL.md](docs/PROTOCOL.md)) — but no write path is wired up and the RF On/Off/Reset buttons
+are deliberately disabled. These commands change a live, potentially on-air transmitter, so control is
+a deliberate decision left for later, not something bolted on off a decode.
 
 One caveat worth knowing: the transmitter acknowledges the account selection regardless of the
 password at this socket layer — a wrong or empty password is not rejected here. So `--probe` confirms

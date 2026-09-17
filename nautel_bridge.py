@@ -17,8 +17,9 @@ offline reuse) or an explicit --spec <file>.
 
 Then open http://localhost:8531/.
 
-Only reads are implemented. The protocol's write/command encoding does not
-appear in the reference capture, so this cannot change transmitter state.
+Only reads are implemented, by choice. The write encoding is known and
+documented (docs/PROTOCOL.md) but no write path is wired up, so this cannot
+change transmitter state.
 """
 import argparse
 import asyncio

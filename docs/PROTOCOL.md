@@ -41,11 +41,20 @@ Client → server:
 
 | Type | Name | Payload |
 |------|------|---------|
-| `0x00` | READ | one-shot read: `u16le count` + N × 4-byte channel IDs |
+| `0x00` | READ (`GetRequest`) | one-shot read: `u16le count` + N × 4-byte channel IDs |
+| `0x02` | SET (`SetRequest`) | write one channel — see [Write commands](#write-commands) |
 | `0x03` | SUBSCRIBE | add channel IDs to the pushed set (same id-list shape) |
 | `0x05` | SUBSCRIBE_ARRAY | subscribe to array channels (spectrum, etc.) |
 | `0x09` | HELLO | see handshake |
+| `0x12` | MAINTENANCE (`MaintenanceRequest`) | reboot etc. — see [Write commands](#write-commands) |
 | `0x13` | LOGIN | see handshake |
+
+The AUI's ActionScript names every message as a class in the `com.nautel.aui.model.message`
+package (`GetRequest`, `SetRequest`, `SubscriptionRequest`, `LoginRequest`, `MaintenanceRequest`,
+`UserRequest`, `AddUser`/`DeleteUser`/`ChangePassword`, notification/stream/email/log/layout
+requests, …). That package listing is the full command catalog — the write-side analog of
+`tx_spec.xml`. The numeric type bytes are not stored next to those names, though; they come from
+captures (the ones above are confirmed) or from disassembling the SWF's ABC bytecode.
 
 Server → client:
 
@@ -115,11 +124,62 @@ select draws no reply (a dead end), while putting it in HELLO gets the acknowled
 style passes every static/length check and only fails against live hardware — verify against a real
 accepted login, not a plausible-looking frame.
 
-## Reads only
+## Write commands
 
-The captures contain no write operations, so the command/set encoding is unknown and nothing here can
-change transmitter state. Adding control would require capturing an AUI session that actually changes
-a setting (a preset, RF on/off), then working out the write frames.
+The write encoding is now known, decoded from captures of a settings change and a reboot press.
+**This project still implements only reads** — no write path is wired up — but the frames are
+documented here so control can be added deliberately later.
+
+### SET (`SetRequest`, type `0x02`)
+
+Writes one channel. The payload is a single self-describing entry — no count prefix:
+
+```
+02 | channelID(u32le) | valuelen(u16le) | value[valuelen]
+```
+
+For a **scalar** channel the value is a little-endian integer, **inverse-scaled** from the read
+`scale` in `tx_spec.xml` — i.e. `wire = round(displayed / scale)` — and **signed** where the channel
+is signed (a captured `TX_HD_VOLTS_INCREASE_VOLTS_LIMIT` write carried `18 fc ff ff` = −1000). Every
+scalar in the capture used a 4-byte value, even booleans; `valuelen` is explicit, so a channel the
+AUI writes as 1 or 2 bytes is possible but unobserved — match what the real AUI sends per channel
+rather than assuming 4.
+
+Confirmed writes from the settings capture (an HD-PA-volts / efficiency-optimizer page):
+
+| Channel | valuelen | value |
+|---|---|---|
+| `TX_HD_VOLTS_RUN_AUTO_OPTIMIZER` | 4 | 1 |
+| `TX_HD_VOLTS_ALLOWED_TO_REDUCE_INJECTION` | 4 | 0 |
+| `TX_HD_VOLTS_INCREASE_VOLTS_LIMIT` | 4 | −1000 (signed) |
+| `TX_FM_POLARITY` | 4 | 1 |
+| `OAP_ACTIVE_PRESET` | 266 | Orban preset blob ("CLASSICAL-2 BAND"…) |
+| `TX_CURRENT_PRESET_STATE` | 437 | full preset blob ("Current Settings / STREAM in"…) |
+
+Combined with `tx_spec.xml` (every channel's ID, scale and signedness), the scalar form generalises
+to **any writable channel** — power set-point, RF on/off, preset selection, audio settings. The
+**preset blobs (266 / 437 bytes) are opaque structured records**; writing those needs the preset
+format reverse-engineered separately, so only the scalar form is the simple, general case.
+
+### MAINTENANCE (`MaintenanceRequest`, type `0x12`)
+
+Reboots. A pressed "Reboot AUI" button sent exactly:
+
+```
+FF 02 00 00 00 12 02 FE      (type 0x12, single action byte 0x02)
+```
+
+`0x02` is the "Reboot AUI" action. The sibling actions `REBOOT_ACTIVE_EXCITER` and
+`REBOOT_STANDBY_EXCITER` exist in the SWF as label keys but their action codes are unconfirmed —
+a capture of those buttons (or ABC disassembly) would map the enum.
+
+### Safety
+
+These commands change a live, potentially on-air transmitter: power, RF state, polarity, presets,
+reboots. Any implementation of them should be off by default, confirm each action explicitly, restrict
+to an allowlist of channels rather than "write anything", and be validated against a spare unit — never
+a blind write against an on-air transmitter. The login handshake does **not** gate this (see above), so
+the client is the only safety layer.
 
 ## Channel model
 
